@@ -8,7 +8,7 @@ public class BBPathPrinter {
 	
 	public static void main(String[] args) {
 		
-		String version = "181005";
+		String version = "190719";
 		PathPrinterForm pathPrinterForm = null;
 		
 		try {

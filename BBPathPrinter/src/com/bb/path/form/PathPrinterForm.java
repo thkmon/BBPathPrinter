@@ -10,10 +10,12 @@ import java.util.ArrayList;
 import java.util.HashMap;
 
 import javax.swing.JButton;
+import javax.swing.JComboBox;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JTextField;
 
+import com.bb.path.data.StringList;
 import com.bb.path.date.DateUtil;
 import com.bb.path.file.FileReadUtil;
 import com.bb.path.file.FileWriteUtil;
@@ -25,6 +27,8 @@ public class PathPrinterForm extends JFrame {
 	
 	private static JTextField dirPathField = null;
 	private static JTextField delimiterField = null;
+	private static JTextField extField = null;
+	private static JComboBox slashTypeCombo = null;
 	
 	private static JTextField messageBox = null;
 	private static JButton printButton = null;
@@ -37,15 +41,18 @@ public class PathPrinterForm extends JFrame {
 		}
 		
 		this.setTitle(title);
-		this.setBounds(0, 0, 800, 260);
+		this.setBounds(0, 0, 800, 340);
 		this.setLayout(null);
 		
 		Font basicFont = new Font("돋움", 0, 12);
 		
 		// 폴더 경로
 		// 딜리미터
-		String dirPath = "";
-		String delimiter = "\\\\r\\n";
+		String defaultDirPath = "";
+		String defaultDelimiter = "\\\\r\\n";
+		String defaultExtension = "*";
+		String defaultSlashChar = "/";
+		
 		
 		// properties 파일 읽기
 		try {
@@ -53,14 +60,24 @@ public class PathPrinterForm extends JFrame {
 			if (optionMap != null) {
 				String temp = null;
 				
-				temp = optionMap.get("dirPath");
+				temp = optionMap.get("defaultDirPath");
 				if (temp != null) {
-					dirPath = temp;
+					defaultDirPath = temp;
 				}
 				
-				temp = optionMap.get("delimiter");
+				temp = optionMap.get("defaultDelimiter");
 				if (temp != null) {
-					delimiter = temp;
+					defaultDelimiter = temp;
+				}
+				
+				temp = optionMap.get("defaultExtension");
+				if (temp != null) {
+					defaultExtension = temp;
+				}
+				
+				temp = optionMap.get("defaultSlashChar");
+				if (temp != null) {
+					defaultSlashChar = temp;
 				}
 			}
 			
@@ -73,31 +90,64 @@ public class PathPrinterForm extends JFrame {
 		label1.setBounds(10, 10, 100, 30);
 		this.add(label1);
 		
+		dirPathField = new JTextField(defaultDirPath);
+		dirPathField.setFont(basicFont);
+		dirPathField.setBounds(100, 10, 670, 30);
+		this.add(dirPathField);
+		
 		JLabel label2 = new JLabel("Delimiter");
 		label2.setFont(basicFont);
 		label2.setBounds(10, 50, 100, 30);
 		this.add(label2);
 		
-		dirPathField = new JTextField(dirPath);
-		dirPathField.setFont(basicFont);
-		dirPathField.setBounds(100, 10, 670, 30);
-		this.add(dirPathField);
-		
-		delimiterField = new JTextField(delimiter);
+		delimiterField = new JTextField(defaultDelimiter);
 		delimiterField.setFont(basicFont);
 		delimiterField.setBounds(100, 50, 670, 30);
 		this.add(delimiterField);
 		
+		JLabel label3 = new JLabel("Extension");
+		label3.setFont(basicFont);
+		label3.setBounds(10, 90, 100, 30);
+		this.add(label3);
+		
+		extField = new JTextField(defaultExtension);
+		extField.setFont(basicFont);
+		extField.setBounds(100, 90, 670, 30);
+		this.add(extField);
+		
+		JLabel label4 = new JLabel("Output Slash");
+		label4.setFont(basicFont);
+		label4.setBounds(10, 130, 100, 30);
+		this.add(label4);
+		
+		slashTypeCombo = new JComboBox();
+		slashTypeCombo.setFont(basicFont);
+		slashTypeCombo.setBounds(100, 130, 670, 30);
+		
+		slashTypeCombo.addItem("Default");
+		slashTypeCombo.addItem("/");
+		slashTypeCombo.addItem("\\");
+		
+		if (defaultSlashChar != null && defaultSlashChar.equals("/")) {
+			slashTypeCombo.setSelectedIndex(1);
+		} else if (defaultSlashChar != null && defaultSlashChar.equals("\\")) {
+			slashTypeCombo.setSelectedIndex(2);
+		} else {
+			slashTypeCombo.setSelectedIndex(0);
+		}
+		
+		this.add(slashTypeCombo);
+		
 		messageBox = new JTextField("");
 		messageBox.setFont(basicFont);
-		messageBox.setBounds(10, 110, 760, 30);
+		messageBox.setBounds(10, 190, 760, 30);
 		messageBox.setEditable(false);
 		messageBox.setBackground(this.getBackground());
 		this.add(messageBox);
 		
 		printButton = new JButton("PRINT");
 		printButton.setFont(basicFont);
-		printButton.setBounds(10, 160, 760, 30);
+		printButton.setBounds(10, 240, 760, 30);
 		
 		printButton.addActionListener(new ActionListener() {
 			@Override
@@ -110,14 +160,21 @@ public class PathPrinterForm extends JFrame {
 		
 		this.setVisible(true);
 		
+		// 기본 필드가 빈값일 경우, 클립보드가 파일경로인지 확인하고 붙여넣기한다.
 		String clipboardString = StringUtil.getClipboardString();
 		if (dirPathField.getText() == null || dirPathField.getText().trim().length() == 0) {
 			if (clipboardString != null && clipboardString.length() > 0) {
+				
+				clipboardString = clipboardString.trim();
+				
 				if (clipboardString.length() > 1000) {
 					clipboardString = clipboardString.substring(0, 1000);
 				}
 				
-				dirPathField.setText(clipboardString);
+				File dir = new File(clipboardString);
+				if (dir.exists()) {
+					dirPathField.setText(clipboardString);
+				}
 			}
 		}
 		
@@ -156,11 +213,27 @@ public class PathPrinterForm extends JFrame {
 				return;
 			}
 			
+			// 대상 확장자 정리
+			String extensions = extField.getText();
+			StringList extensionList = null;
+			if (extensions != null && extensions.trim().length() > 0 && !extensions.equals("*")) {
+				extensionList = StringUtil.splitWithTrim(extensions, ",");
+			}
+			
+			// 슬래시 타입 정리
+			String slashType = StringUtil.parseString(slashTypeCombo.getSelectedItem());
+			if (slashType == null) {
+				slashType = "";
+				
+			} else if (!slashType.equals("/") && !slashType.equals("\\")) {
+				slashType = "";
+			}
+			
 			printMessage("폴더 분석을 시도합니다. 잠시 기다려주십시오.");
 			
 			ArrayList<String> fileList = new ArrayList<String>();
 			
-			addFileToList(fileList, dirObj, "/");
+			addFileToList(fileList, dirObj, slashType, extensionList);
 			fileList = sortFileList(fileList);
 			
 			
@@ -186,10 +259,20 @@ public class PathPrinterForm extends JFrame {
 			if (fileList != null && fileList.size() > 0) {
 				int fileCount = fileList.size();
 				int lastIndex = fileCount - 1;
-				String targetPath = StringUtil.revisePath(dirObj.getAbsolutePath(), "/");
+				String targetPath = dirObj.getAbsolutePath();
 				outputContent.add("대상 경로");
 				outputContent.add("\r\n");
 				outputContent.add(targetPath);
+				outputContent.add("\r\n");
+				outputContent.add("\r\n");
+				
+				outputContent.add("대상 확장자");
+				outputContent.add("\r\n");
+				if (extensionList == null) {
+					outputContent.add("*");
+				} else {
+					outputContent.add(extensionList.toString());
+				}
 				outputContent.add("\r\n");
 				outputContent.add("\r\n");
 				
@@ -261,13 +344,17 @@ public class PathPrinterForm extends JFrame {
 	}
 	
 	
-	private static void addFileToList(ArrayList<String> fileList, File file, String slashChar) {
+	private static void addFileToList(ArrayList<String> fileList, File file, String slashChar, StringList extensionList) {
 		if (file == null || !file.exists()) {
 			return;
 		}
 		
 		if (file.isFile()) {
-			fileList.add(StringUtil.revisePath(file.getAbsolutePath(), slashChar));
+			String onePath = file.getAbsolutePath();
+			String oneExt = FileReadUtil.getFileExtension(onePath);
+			if (extensionList == null || extensionList.findIgnoreCase(oneExt)) {
+				fileList.add(StringUtil.changePathSlash(onePath, slashChar));
+			}
 			
 		} else if (file.isDirectory()) {
 			
@@ -275,7 +362,7 @@ public class PathPrinterForm extends JFrame {
 			if (fileArr != null && fileArr.length > 0) {
 				int fileCount = fileArr.length;
 				for (int i=0; i<fileCount; i++) {
-					addFileToList(fileList, fileArr[i], slashChar);
+					addFileToList(fileList, fileArr[i], slashChar, extensionList);
 				}
 			}
 		}

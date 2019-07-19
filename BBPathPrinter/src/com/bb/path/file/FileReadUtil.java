@@ -68,32 +68,51 @@ public class FileReadUtil {
 			throw e;
 			
 		} finally {
-			try {
-				if (bufferedReader != null) {
-					bufferedReader.close();
-				}
-			} catch (Exception e) {
-				// 무시
-			}
-			
-			try {
-				if (inputStreamReader != null) {
-					inputStreamReader.close();
-				}
-			} catch (Exception e) {
-				// 무시
-			}
-			
-			try {
-				if (fileInputStream != null) {
-					fileInputStream.close();
-				}
-			} catch (Exception e) {
-				// 무시
-			}
+			close(bufferedReader);
+			close(inputStreamReader);
+			close(fileInputStream);
 		}
 		
 		return resultList;
+	}
+	
+	
+	public static void close(BufferedReader bufferedReader) {
+		try {
+			if (bufferedReader != null) {
+				bufferedReader.close();
+			}
+		} catch (Exception e) {
+			// 무시
+		} finally {
+			bufferedReader = null;
+		}
+	}
+	
+	
+	public static void close(InputStreamReader inputStreamReader) {
+		try {
+			if (inputStreamReader != null) {
+				inputStreamReader.close();
+			}
+		} catch (Exception e) {
+			// 무시
+		} finally {
+			inputStreamReader = null;
+		}
+	}
+	
+
+	public static void close(FileInputStream fileInputStream) {
+		try {
+			if (fileInputStream != null) {
+				fileInputStream.close();
+			}
+		} catch (Exception e) {
+			// 무시
+		} finally {
+			fileInputStream = null;
+		}
 	}
 	
 	
@@ -153,5 +172,29 @@ public class FileReadUtil {
 		}
 		
 		return resultMap;
+	}
+	
+	
+	public static String getFileExtension(String filePath) {
+		if (filePath == null || filePath.length() == 0) {
+			return "";
+		}
+		
+		int lastSlashIdx = filePath.lastIndexOf("/");
+		int lastBackSlashIdx = filePath.lastIndexOf("\\");
+		if (lastSlashIdx > -1 || lastBackSlashIdx > -1) {
+			if (lastSlashIdx > lastBackSlashIdx) {
+				filePath = filePath.substring(lastSlashIdx + 1);
+			} else {
+				filePath = filePath.substring(lastBackSlashIdx + 1);
+			}
+		}
+		
+		int lastDotIdx = filePath.lastIndexOf(".");
+		if (lastDotIdx > -1) {
+			return filePath.substring(lastDotIdx  + 1);
+		}
+		
+		return "";
 	}
 }
